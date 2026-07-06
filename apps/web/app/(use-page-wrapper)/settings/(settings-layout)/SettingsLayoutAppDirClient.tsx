@@ -81,6 +81,12 @@ const getTabs = (
       ],
     },
     {
+      name: "teams",
+      href: "/settings/teams",
+      icon: "users",
+      children: [],
+    },
+    {
       name: "security",
       href: "/settings/security",
       icon: "key",
@@ -278,11 +284,23 @@ const useTabs = ({
 }) => {
   const session = useSession();
   const { data: user } = trpc.viewer.me.get.useQuery({ includePasswordAdded: true });
+  const { data: teams } = trpc.viewer.teams.list.useQuery();
   const orgBranding = null as { id?: number; slug?: string; name?: string; logoUrl?: string | null } | null;
   const isAdmin = session.data?.user.role === UserPermissionRole.ADMIN;
 
   const processTabsMemod = useMemo(() => {
+    const acceptedTeams = (teams ?? []).filter((team) => team.membership.accepted);
     const processedTabs = getTabs(orgBranding).map((tab) => {
+      if (tab.href === "/settings/teams") {
+        return {
+          ...tab,
+          children: acceptedTeams.map((team) => ({
+            name: team.name,
+            href: `/settings/teams/${team.id}/profile`,
+            avatar: getPlaceholderAvatar(team.logoUrl, team.name),
+          })),
+        };
+      }
       if (tab.href === "/settings/my-account") {
         return {
           ...tab,
@@ -367,13 +385,14 @@ const useTabs = ({
 
     // check if name is in adminRequiredKeys
     return processedTabs.filter((tab) => {
+      if (tab.href === "/settings/teams") return acceptedTeams.length > 0;
       if (organizationRequiredKeys.includes(tab.name)) return !!orgBranding;
       if (tab.name === "other_teams" && !permissions?.canUpdateOrganization) return false;
 
       if (isAdmin) return true;
       return !adminRequiredKeys.includes(tab.name);
     });
-  }, [isAdmin, orgBranding, user, isDelegationCredentialEnabled, isPbacEnabled, permissions]);
+  }, [isAdmin, orgBranding, user, teams, isDelegationCredentialEnabled, isPbacEnabled, permissions]);
 
   return processTabsMemod;
 };
