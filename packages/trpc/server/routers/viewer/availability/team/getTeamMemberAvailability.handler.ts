@@ -1,7 +1,7 @@
 import dayjs from "@calcom/dayjs";
 import { findUsersForAvailabilityCheck } from "@calcom/features/availability/lib/findUsersForAvailabilityCheck";
 import { getUserAvailabilityService } from "@calcom/features/di/containers/GetUserAvailability";
-import { MembershipService } from "@calcom/features/membership/services/membershipService";
+import { prisma } from "@calcom/prisma";
 import { TRPCError } from "@trpc/server";
 import type { TrpcSessionUser } from "../../../../types";
 import type { TGetTeamMemberAvailabilitySchema } from "./getTeamMemberAvailability.schema";
@@ -18,7 +18,7 @@ type GetTeamMemberAvailabilityOptions = {
 const MAX_RANGE_DAYS = 7;
 
 export const getTeamMemberAvailabilityHandler = async ({ ctx, input }: GetTeamMemberAvailabilityOptions) => {
-  const { teamId, memberId } = input;
+  const { memberId } = input;
 
   const dateFrom = dayjs(input.dateFrom);
   const dateTo = dayjs(input.dateTo);
@@ -32,17 +32,30 @@ export const getTeamMemberAvailabilityHandler = async ({ ctx, input }: GetTeamMe
     });
   }
 
-  const membershipService = new MembershipService();
-  const [viewerMembership, targetMembership] = await Promise.all([
-    membershipService.checkMembership(teamId, ctx.user.id),
-    membershipService.checkMembership(teamId, memberId),
-  ]);
+  const isSelf = ctx.user.id === memberId;
+  if (!isSelf) {
+    const sharedTeamMembership = await prisma.membership.findFirst({
+      where: {
+        userId: memberId,
+        accepted: true,
+        team: {
+          members: {
+            some: {
+              userId: ctx.user.id,
+              accepted: true,
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
 
-  if (!viewerMembership.isMember) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "You are not a member of this team." });
-  }
-  if (!targetMembership.isMember) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "This user is not a member of this team." });
+    if (!sharedTeamMembership) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not share a team with this user.",
+      });
+    }
   }
 
   const user = await findUsersForAvailabilityCheck({ where: { id: memberId } });
@@ -65,8 +78,6 @@ export const getTeamMemberAvailabilityHandler = async ({ ctx, input }: GetTeamMe
   );
 
   // Teammates only see free/busy blocks; booking titles are private to the member.
-  const isSelf = ctx.user.id === memberId;
-
   return {
     timeZone: availability.timeZone,
     dateRanges: availability.dateRanges,
