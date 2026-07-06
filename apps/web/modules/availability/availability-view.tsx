@@ -9,6 +9,7 @@ import type { RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
 import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
+import { ToggleGroup } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { NewScheduleButton } from "@calcom/web/modules/schedules/components/NewScheduleButton";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
@@ -178,9 +179,41 @@ export function AvailabilityList({ availabilities }: AvailabilityListProps) {
   );
 }
 
+export const AvailabilityViewToggle = ({ current }: { current: "mine" | "team" }) => {
+  const { t } = useLocale();
+  const router = useRouter();
+  const { data } = trpc.viewer.availability.listTeam.useInfiniteQuery(
+    {
+      limit: 1,
+      loggedInUsersTz: "UTC",
+      startDate: new Date().toISOString(),
+      endDate: new Date().toISOString(),
+    },
+    { staleTime: 5 * 60 * 1000, retry: false }
+  );
+  const isApartOfAnyTeam = data?.pages[0]?.meta.isApartOfAnyTeam ?? false;
+
+  if (!isApartOfAnyTeam && current === "mine") return null;
+
+  return (
+    <ToggleGroup
+      defaultValue={current}
+      onValueChange={(value) => {
+        if (value === "team") router.push("/availability/team");
+        if (value === "mine") router.push("/availability");
+      }}
+      options={[
+        { value: "mine", label: t("my_availability") },
+        { value: "team", label: t("team_availability") },
+      ]}
+    />
+  );
+};
+
 export const AvailabilityCTA = () => {
   return (
     <div className="flex items-center gap-2">
+      <AvailabilityViewToggle current="mine" />
       <NewScheduleButton />
     </div>
   );
