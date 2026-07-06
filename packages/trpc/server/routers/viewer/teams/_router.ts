@@ -2,9 +2,13 @@ import { MembershipRole } from "@calcom/prisma/enums";
 import authedProcedure from "../../../procedures/authedProcedure";
 import { createTeamPbacProcedure } from "../../../procedures/pbacProcedures";
 import { router } from "../../../trpc";
+import { ZAcceptOrLeaveSchema } from "./acceptOrLeave.schema";
+import { ZChangeMemberRoleSchema } from "./changeMemberRole.schema";
 import { ZCreateSchema } from "./create.schema";
 import { ZDeleteSchema } from "./delete.schema";
 import { ZGetSchema } from "./get.schema";
+import { ZListMembersSchema } from "./listMembers.schema";
+import { ZRemoveMemberSchema } from "./removeMember.schema";
 import { ZUpdateSchema } from "./update.schema";
 
 export const teamsRouter = router({
@@ -40,5 +44,33 @@ export const teamsRouter = router({
       const { deleteHandler } = await import("./delete.handler");
 
       return deleteHandler({ ctx, input });
+    }),
+
+  listMembers: authedProcedure.input(ZListMembersSchema).query(async ({ ctx, input }) => {
+    const { listMembersHandler } = await import("./listMembers.handler");
+
+    return listMembersHandler({ ctx, input });
+  }),
+
+  acceptOrLeave: authedProcedure.input(ZAcceptOrLeaveSchema).mutation(async ({ ctx, input }) => {
+    const { acceptOrLeaveHandler } = await import("./acceptOrLeave.handler");
+
+    return acceptOrLeaveHandler({ ctx, input });
+  }),
+
+  changeMemberRole: createTeamPbacProcedure("team.changeMemberRole")
+    .input(ZChangeMemberRoleSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { changeMemberRoleHandler } = await import("./changeMemberRole.handler");
+
+      return changeMemberRoleHandler({ ctx, input });
+    }),
+
+  removeMember: createTeamPbacProcedure("team.removeMember")
+    .input(ZRemoveMemberSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { removeMemberHandler } = await import("./removeMember.handler");
+
+      return removeMemberHandler({ ctx, input });
     }),
 });
