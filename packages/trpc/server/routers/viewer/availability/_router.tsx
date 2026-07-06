@@ -2,6 +2,7 @@ import authedProcedure from "../../../procedures/authedProcedure";
 import { router } from "../../../trpc";
 import { ZCalendarOverlayInputSchema } from "./calendarOverlay.schema";
 import { scheduleRouter } from "./schedule/_router";
+import { ZGetTeamMemberAvailabilitySchema } from "./team/getTeamMemberAvailability.schema";
 import { ZListTeamAvailaiblityScheme } from "./team/listTeamAvailability.schema";
 import { ZUserInputSchema } from "./user.schema";
 
@@ -33,6 +34,14 @@ export const availabilityRouter = router({
     const { listTeamAvailabilityHandler } = await import("./team/listTeamAvailability.handler");
 
     return listTeamAvailabilityHandler({
+      ctx,
+      input,
+    });
+  }),
+  teamMember: authedProcedure.input(ZGetTeamMemberAvailabilitySchema).query(async ({ ctx, input }) => {
+    const { getTeamMemberAvailabilityHandler } = await import("./team/getTeamMemberAvailability.handler");
+
+    return getTeamMemberAvailabilityHandler({
       ctx,
       input,
     });
