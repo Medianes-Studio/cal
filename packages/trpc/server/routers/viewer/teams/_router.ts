@@ -7,6 +7,7 @@ import { ZChangeMemberRoleSchema } from "./changeMemberRole.schema";
 import { ZCreateSchema } from "./create.schema";
 import { ZDeleteSchema } from "./delete.schema";
 import { ZGetSchema } from "./get.schema";
+import { ZInviteMemberSchema } from "./inviteMember.schema";
 import { ZListMembersSchema } from "./listMembers.schema";
 import { ZRemoveMemberSchema } from "./removeMember.schema";
 import { ZUpdateSchema } from "./update.schema";
@@ -72,5 +73,13 @@ export const teamsRouter = router({
       const { removeMemberHandler } = await import("./removeMember.handler");
 
       return removeMemberHandler({ ctx, input });
+    }),
+
+  inviteMember: createTeamPbacProcedure("team.invite")
+    .input(ZInviteMemberSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { inviteMemberHandler } = await import("./inviteMember.handler");
+
+      return inviteMemberHandler({ ctx, input });
     }),
 });
