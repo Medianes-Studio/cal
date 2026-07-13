@@ -2934,6 +2934,7 @@
   "member_removed": "Member removed",
   "my_availability": "My availability",
   "team_availability": "Team availability",
+  "view_team_availability_description": "See when your teammates are available, in your timezone.",
   "instant_meeting_availability": "Instant meeting availability",
   "backup_code": "Backup code",
   "backup_codes": "Backup codes",

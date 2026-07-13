@@ -5,9 +5,7 @@ import { buildDateRanges } from "@calcom/features/schedules/lib/date-ranges";
 import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { prisma } from "@calcom/prisma";
 import { Prisma } from "@calcom/prisma/client";
-
 import { TRPCError } from "@trpc/server";
-
 import type { TrpcSessionUser } from "../../../../types";
 import type { TListTeamAvailaiblityScheme } from "./listTeamAvailability.schema";
 
@@ -38,6 +36,7 @@ async function getTeamMembers({
       teamId: {
         in: teamId ? [teamId] : teamIds,
       },
+      accepted: true,
       ...(searchString
         ? {
             OR: [
@@ -92,7 +91,20 @@ async function getTeamMembers({
 
 type Member = Awaited<ReturnType<typeof getTeamMembers>>[number];
 
-async function buildMember(member: Member, dateFrom: Dayjs, dateTo: Dayjs) {
+async function getSchedulesByIds(scheduleIds: number[]) {
+  const schedules = scheduleIds.length
+    ? await prisma.schedule.findMany({
+        where: { id: { in: scheduleIds } },
+        select: { id: true, availability: true, timeZone: true },
+      })
+    : [];
+
+  return new Map(schedules.map(({ id, ...schedule }) => [id, schedule]));
+}
+
+type ScheduleMap = Awaited<ReturnType<typeof getSchedulesByIds>>;
+
+function buildMember(member: Member, dateFrom: Dayjs, dateTo: Dayjs, scheduleMap: ScheduleMap) {
   if (!member.user.defaultScheduleId) {
     return {
       id: member.user.id,
@@ -107,10 +119,7 @@ async function buildMember(member: Member, dateFrom: Dayjs, dateTo: Dayjs) {
     };
   }
 
-  const schedule = await prisma.schedule.findUnique({
-    where: { id: member.user.defaultScheduleId },
-    select: { availability: true, timeZone: true },
-  });
+  const schedule = scheduleMap.get(member.user.defaultScheduleId);
   const timeZone = schedule?.timeZone || member.user.timeZone;
 
   const { dateRanges } = buildDateRanges({
@@ -150,6 +159,7 @@ async function getInfoForAllTeams({ ctx, input }: GetOptions) {
     .findMany({
       where: {
         userId: ctx.user.id,
+        accepted: true,
       },
       select: {
         id: true,
@@ -176,7 +186,9 @@ async function getInfoForAllTeams({ ctx, input }: GetOptions) {
     {
       count: number;
     }[]
-  >`SELECT COUNT(DISTINCT "userId")::integer from "Membership" WHERE "teamId" IN (${Prisma.join(teamIds)})`;
+  >`SELECT COUNT(DISTINCT "userId")::integer from "Membership" WHERE "teamId" IN (${Prisma.join(
+    teamIds
+  )}) AND "accepted" = true`;
 
   return {
     teamMembers,
@@ -207,7 +219,7 @@ export const listTeamAvailabilityHandler = async ({ ctx, input }: GetOptions) =>
       },
     });
 
-    if (!isMember) {
+    if (!isMember || !isMember.accepted) {
       teamMembers = [];
       totalTeamMembers = 0;
     } else {
@@ -216,6 +228,7 @@ export const listTeamAvailabilityHandler = async ({ ctx, input }: GetOptions) =>
       totalTeamMembers = await prisma.membership.count({
         where: {
           teamId: teamId,
+          accepted: true,
           ...(searchString
             ? {
                 OR: [
@@ -239,7 +252,7 @@ export const listTeamAvailabilityHandler = async ({ ctx, input }: GetOptions) =>
     }
   }
 
-  let nextCursor: typeof cursor | undefined = undefined;
+  let nextCursor: typeof cursor | undefined;
   if (teamMembers && teamMembers.length > limit) {
     const nextItem = teamMembers.pop();
     nextCursor = nextItem?.id;
@@ -248,9 +261,13 @@ export const listTeamAvailabilityHandler = async ({ ctx, input }: GetOptions) =>
   const dateFrom = dayjs(input.startDate).tz(input.loggedInUsersTz).subtract(1, "day");
   const dateTo = dayjs(input.endDate).tz(input.loggedInUsersTz).add(1, "day");
 
-  const buildMembers = teamMembers?.map((member) => buildMember(member, dateFrom, dateTo));
+  const scheduleMap = await getSchedulesByIds(
+    teamMembers
+      .map((member) => member.user.defaultScheduleId)
+      .filter((scheduleId): scheduleId is number => scheduleId !== null)
+  );
 
-  const members = await Promise.all(buildMembers);
+  const members = teamMembers.map((member) => buildMember(member, dateFrom, dateTo, scheduleMap));
 
   let belongsToTeam = true;
 
@@ -258,6 +275,7 @@ export const listTeamAvailabilityHandler = async ({ ctx, input }: GetOptions) =>
     const membership = await prisma.membership.findFirst({
       where: {
         userId: ctx.user.id,
+        accepted: true,
       },
       select: {
         id: true,
