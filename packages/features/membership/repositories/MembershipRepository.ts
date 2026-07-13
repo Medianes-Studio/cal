@@ -340,6 +340,69 @@ export class MembershipRepository {
     });
   }
 
+  async updateAcceptedByUserIdAndTeamId({
+    userId,
+    teamId,
+    accepted,
+  }: {
+    userId: number;
+    teamId: number;
+    accepted: boolean;
+  }) {
+    return this.prismaClient.membership.update({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId,
+        },
+      },
+      data: { accepted },
+      select: membershipSelect,
+    });
+  }
+
+  async updateRoleByUserIdAndTeamId({
+    userId,
+    teamId,
+    role,
+  }: {
+    userId: number;
+    teamId: number;
+    role: MembershipRole;
+  }) {
+    return this.prismaClient.membership.update({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId,
+        },
+      },
+      data: { role },
+      select: membershipSelect,
+    });
+  }
+
+  async deleteByUserIdAndTeamId({ userId, teamId }: { userId: number; teamId: number }): Promise<void> {
+    await this.prismaClient.membership.delete({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId,
+        },
+      },
+    });
+  }
+
+  async countAcceptedOwnersByTeamId({ teamId }: { teamId: number }): Promise<number> {
+    return this.prismaClient.membership.count({
+      where: {
+        teamId,
+        role: MembershipRole.OWNER,
+        accepted: true,
+      },
+    });
+  }
+
   async findRoleByUserIdAndTeamId({ userId, teamId }: { userId: number; teamId: number }) {
     return await this.prismaClient.membership.findUnique({
       where: {
