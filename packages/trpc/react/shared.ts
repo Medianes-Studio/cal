@@ -18,6 +18,7 @@ export const ENDPOINTS = [
   "features",
   "feedback",
   "holidays",
+  "teams",
   "featureOptIn",
   "i18n",
   "me",
