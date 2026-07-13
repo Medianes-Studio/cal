@@ -1,0 +1,65 @@
+name: Deploy to Azure Container Apps
+
+# Build de l'image Cal.diy, push vers ACR, mise à jour du Container App.
+# Déclenché à la main ou sur push de la branche `deploy`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [deploy]
+
+env:
+  IMAGE_NAME: cal-web
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # Requiert les secrets de dépôt suivants :
+    #   AZURE_CREDENTIALS       (sortie de: az ad sp create-for-rbac --sdk-auth)
+    #   ACR_NAME                (ex: calmedianesacr)
+    #   ACA_RESOURCE_GROUP      (ex: cal-medianes-rg)
+    #   ACA_APP                 (ex: cal-web)
+    #   PUBLIC_URL              (ex: https://cal.medianes.org)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name "${{ secrets.ACR_NAME }}"
+
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push image
+        run: |
+          ACR_SERVER="$(az acr show -n '${{ secrets.ACR_NAME }}' --query loginServer -o tsv)"
+          IMAGE="$ACR_SERVER/${IMAGE_NAME}:${{ steps.tag.outputs.tag }}"
+          # NEXT_PUBLIC_WEBAPP_URL est figé dans le build statique puis remplacé
+          # au démarrage par start.sh si l'URL runtime diffère.
+          docker build \
+            --build-arg NEXT_PUBLIC_WEBAPP_URL="${{ secrets.PUBLIC_URL }}" \
+            --build-arg CALCOM_TELEMETRY_DISABLED=1 \
+            --build-arg DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+            -t "$IMAGE" \
+            -t "$ACR_SERVER/${IMAGE_NAME}:latest" \
+            .
+          docker push "$IMAGE"
+          docker push "$ACR_SERVER/${IMAGE_NAME}:latest"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --resource-group "${{ secrets.ACA_RESOURCE_GROUP }}" \
+            --name "${{ secrets.ACA_APP }}" \
+            --image "$IMAGE"
+
+      - name: Show URL
+        run: |
+          FQDN="$(az containerapp show -g '${{ secrets.ACA_RESOURCE_GROUP }}' -n '${{ secrets.ACA_APP }}' --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "Déployé sur https://$FQDN"
