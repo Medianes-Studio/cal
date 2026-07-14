@@ -48,7 +48,7 @@ RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
 # Force webpack: le build Turbopack par défaut (Next 16) se bloque sur PostCSS.
-RUN yarn --cwd apps/web workspace @calcom/web exec next build --webpack
+RUN yarn --cwd apps/web workspace @calcom/web exec next build
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
 
 FROM node:20 AS builder-two
