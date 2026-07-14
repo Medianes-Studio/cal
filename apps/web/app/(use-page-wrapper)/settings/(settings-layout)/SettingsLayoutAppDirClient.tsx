@@ -294,11 +294,13 @@ const useTabs = ({
       if (tab.href === "/settings/teams") {
         return {
           ...tab,
-          children: acceptedTeams.map((team) => ({
-            name: team.name,
-            href: `/settings/teams/${team.id}/profile`,
-            avatar: getPlaceholderAvatar(team.logoUrl, team.name),
-          })),
+          children: acceptedTeams.map(
+            (team): VerticalTabItemProps => ({
+              name: team.name,
+              href: `/settings/teams/${team.id}/profile`,
+              avatar: getPlaceholderAvatar(team.logoUrl, team.name),
+            })
+          ),
         };
       }
       if (tab.href === "/settings/my-account") {
