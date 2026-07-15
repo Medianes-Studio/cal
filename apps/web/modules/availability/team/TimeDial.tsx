@@ -1,12 +1,14 @@
 "use client";
 
-import type { Dayjs } from "@calcom/dayjs";
+import dayjs, { type Dayjs } from "@calcom/dayjs";
 import classNames from "@calcom/ui/classNames";
 import { Tooltip } from "@calcom/ui/components/tooltip";
 
+// Over the wire the availability date ranges may arrive as ISO strings, Date
+// objects or Dayjs instances (tRPC infers Dayjs); dayjs() normalizes all three.
 type SerializedDateRange = {
-  start: string | Date;
-  end: string | Date;
+  start: string | Date | Dayjs;
+  end: string | Date | Dayjs;
 };
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -25,8 +27,8 @@ export function TimeDial({
 }) {
   const dayStartMs = dayStart.valueOf();
   const rangesMs = dateRanges.map((range) => ({
-    start: new Date(range.start).getTime(),
-    end: new Date(range.end).getTime(),
+    start: dayjs(range.start).valueOf(),
+    end: dayjs(range.end).valueOf(),
   }));
 
   return (

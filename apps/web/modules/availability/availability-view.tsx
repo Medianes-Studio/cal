@@ -189,7 +189,11 @@ export const AvailabilityViewToggle = ({ current }: { current: "mine" | "team" }
       startDate: new Date().toISOString(),
       endDate: new Date().toISOString(),
     },
-    { staleTime: 5 * 60 * 1000, retry: false }
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      staleTime: 5 * 60 * 1000,
+      retry: false,
+    }
   );
   const isApartOfAnyTeam = data?.pages[0]?.meta.isApartOfAnyTeam ?? false;
 

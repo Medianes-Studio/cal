@@ -49,7 +49,7 @@ export function MemberAvailabilitySheet({
       title: busyTime.title ? busyTime.title : t("busy_time.busy"),
       start: new Date(busyTime.start),
       end: new Date(busyTime.end),
-      source: busyTime.source,
+      source: busyTime.source ?? undefined,
       options: {
         status: BookingStatus.ACCEPTED,
       },
